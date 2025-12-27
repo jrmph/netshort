@@ -2,150 +2,264 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Reels | Premium Short Drama</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Movie Reels | Jhames Martin Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         
         body {
-            background-color: #050505;
-            color: white;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, #121212 25%, #1a1a1a 50%, #121212 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-        }
-
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+            background-color: #000;
+            color: #fff;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow: hidden;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        .reel-container {
+            height: 100vh;
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
         }
 
-        .active-tab {
-            color: #ef4444;
+        .reel-slide {
+            height: 100vh;
+            scroll-snap-align: start;
             position: relative;
+            background: #000;
         }
-        .active-tab::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 4px;
-            height: 4px;
-            background: #ef4444;
+
+        .video-full {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .skeleton-pulse {
+            background: linear-gradient(90deg, #111 25%, #222 50%, #111 75%);
+            background-size: 200% 100%;
+            animation: skeleton 1.5s infinite linear;
+        }
+
+        @keyframes skeleton {
+            from { background-position: 200% 0; }
+            to { background-position: -200% 0; }
+        }
+
+        .glass-nav {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .btn-action {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 8px;
         }
+
+        .tab-active { color: #ff3b30; }
     </style>
 </head>
-<body class="max-w-md mx-auto min-h-screen border-x border-zinc-900 shadow-2xl">
+<body class="max-w-md mx-auto border-x border-zinc-900">
 
-    <!-- Header -->
-    <header class="sticky top-0 z-50 p-4 glass flex justify-between items-center">
-        <div class="flex flex-col">
-            <span class="text-[10px] text-red-500 font-black tracking-widest uppercase">Jhames Martin Presents</span>
-            <h1 class="text-xl font-black italic text-white tracking-tighter">MOVIE<span class="text-red-600">REELS</span></h1>
-        </div>
-        <div class="flex gap-4 items-center">
-            <i class="fa-solid fa-magnifying-glass text-zinc-400"></i>
-            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-purple-600 border border-white/10"></div>
-        </div>
-    </header>
-
-    <!-- Hero Section / Featured -->
-    <main class="p-4 pb-24">
-        <div class="mb-8">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-fire text-orange-500"></i> Trending Now
-            </h2>
-            
-            <!-- Skeleton Container (Swapped via JS) -->
-            <div id="reels-container" class="grid grid-cols-2 gap-4">
-                <!-- Skeletons appear here first -->
-                <div class="aspect-[2/3] rounded-2xl skeleton"></div>
-                <div class="aspect-[2/3] rounded-2xl skeleton"></div>
-                <div class="aspect-[2/3] rounded-2xl skeleton"></div>
-                <div class="aspect-[2/3] rounded-2xl skeleton"></div>
+    <!-- Screen Toggle Views -->
+    <div id="view-home" class="h-screen flex flex-col">
+        <!-- Header -->
+        <header class="p-5 flex justify-between items-center glass-nav sticky top-0 z-50">
+            <div>
+                <p class="text-[10px] font-black text-red-600 tracking-widest uppercase mb-0.5">Jhames Martin</p>
+                <h1 class="text-xl font-extrabold tracking-tighter">MOVIE<span class="text-red-600 italic">REELS</span></h1>
             </div>
-        </div>
-
-        <!-- Categories -->
-        <div class="mb-8">
-            <div class="flex gap-4 overflow-x-auto no-scrollbar">
-                <span class="px-4 py-1.5 rounded-full bg-red-600 text-xs font-bold">All</span>
-                <span class="px-4 py-1.5 rounded-full bg-zinc-900 text-xs font-bold text-zinc-400">Romance</span>
-                <span class="px-4 py-1.5 rounded-full bg-zinc-900 text-xs font-bold text-zinc-400">CEO</span>
-                <span class="px-4 py-1.5 rounded-full bg-zinc-900 text-xs font-bold text-zinc-400">Action</span>
+            <div class="flex gap-4 items-center">
+                <button onclick="triggerScrape()" class="text-xs bg-white/10 px-3 py-1 rounded-full border border-white/5 hover:bg-white/20">
+                    <i class="fa-solid fa-sync-alt mr-1"></i> Scrape
+                </button>
+                <i class="fa-solid fa-magnifying-glass text-zinc-400"></i>
             </div>
-        </div>
-    </main>
+        </header>
 
-    <!-- Navigation Bar -->
-    <nav class="fixed bottom-0 w-full max-w-md glass py-4 flex justify-around items-center border-t border-white/5">
-        <div class="flex flex-col items-center gap-1 active-tab">
-            <i class="fa-solid fa-house text-lg"></i>
-            <span class="text-[10px] font-bold">Home</span>
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-24">
+            <!-- Hero Promo -->
+            <div class="relative h-44 rounded-3xl overflow-hidden mb-8 shadow-2xl group cursor-pointer" onclick="switchView('reels')">
+                <img src="https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=800" class="w-full h-full object-cover group-hover:scale-110 transition duration-700 opacity-60">
+                <div class="absolute inset-0 bg-gradient-to-t from-black flex flex-col justify-end p-5">
+                    <span class="bg-red-600 text-[10px] font-bold px-2 py-0.5 w-fit rounded mb-2">HOT RECOMMEND</span>
+                    <h2 class="text-2xl font-black">Unveiling the Hidden Billionaire</h2>
+                    <p class="text-xs text-zinc-300">New Episodes Daily • Watch Free Now</p>
+                </div>
+            </div>
+
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-fire-flame-curved text-orange-500"></i> Trending Series
+            </h3>
+
+            <!-- Dynamic Grid -->
+            <div id="movie-grid" class="grid grid-cols-2 gap-4">
+                <!-- Skeletons -->
+                <div class="aspect-[3/4] rounded-2xl skeleton-pulse"></div>
+                <div class="aspect-[3/4] rounded-2xl skeleton-pulse"></div>
+                <div class="aspect-[3/4] rounded-2xl skeleton-pulse"></div>
+                <div class="aspect-[3/4] rounded-2xl skeleton-pulse"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Reels View -->
+    <div id="view-reels" class="hidden h-screen w-full bg-black">
+        <div id="reels-list" class="reel-container no-scrollbar">
+            <!-- Reels will be injected here -->
         </div>
-        <div class="flex flex-col items-center gap-1 text-zinc-500">
-            <i class="fa-solid fa-play text-lg"></i>
+        
+        <!-- Back Button -->
+        <button onclick="switchView('home')" class="absolute top-10 left-5 z-50 w-10 h-10 bg-black/40 rounded-full backdrop-blur-md flex items-center justify-center">
+            <i class="fa-solid fa-chevron-left text-white"></i>
+        </button>
+    </div>
+
+    <!-- Global Navigation -->
+    <nav id="bottom-nav" class="fixed bottom-0 w-full max-w-md glass-nav py-4 flex justify-around items-center border-t border-white/5 z-[60]">
+        <div onclick="switchView('home')" class="flex flex-col items-center gap-1 cursor-pointer tab-active" id="nav-home">
+            <i class="fa-solid fa-compass text-xl"></i>
+            <span class="text-[10px] font-bold">Discover</span>
+        </div>
+        <div onclick="switchView('reels')" class="flex flex-col items-center gap-1 cursor-pointer text-zinc-500" id="nav-reels">
+            <i class="fa-solid fa-play text-xl"></i>
             <span class="text-[10px] font-bold">Reels</span>
         </div>
         <div class="flex flex-col items-center gap-1 text-zinc-500">
-            <i class="fa-solid fa-bookmark text-lg"></i>
-            <span class="text-[10px] font-bold">List</span>
-        </div>
-        <div class="flex flex-col items-center gap-1 text-zinc-500">
-            <i class="fa-solid fa-user text-lg"></i>
-            <span class="text-[10px] font-bold">Profile</span>
+            <i class="fa-solid fa-heart text-xl"></i>
+            <span class="text-[10px] font-bold">My List</span>
         </div>
     </nav>
 
     <script>
-        // Fetch and Render logic
-        async function loadReels() {
-            try {
-                const response = await fetch('/api/reels');
-                const data = await response.json();
-                
-                const container = document.getElementById('reels-container');
-                container.innerHTML = ''; // Clear skeletons
+        let movies = [];
+        let currentView = 'home';
 
-                data.forEach(reel => {
-                    container.innerHTML += `
-                        <div class="relative group cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 shadow-lg">
-                            <img src="${reel.cover}" class="w-full h-full object-cover transition duration-500 group-hover:scale-110" />
-                            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
-                            <div class="absolute bottom-3 left-3 right-3">
-                                <p class="text-[10px] font-black text-red-500 mb-1 uppercase tracking-tighter">${reel.episodes} Episodes</p>
-                                <h3 class="text-sm font-bold leading-tight line-clamp-2">${reel.title}</h3>
-                                <div class="flex items-center gap-2 mt-2 opacity-70">
-                                    <i class="fa-solid fa-heart text-[10px]"></i>
-                                    <span class="text-[10px]">${reel.likes}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-            } catch (err) {
-                console.error("Failed to load data:", err);
+        async function init() {
+            try {
+                const res = await fetch('/api/reels');
+                movies = await res.json();
+                renderHome();
+                renderReels();
+            } catch (e) {
+                console.error("Load error", e);
             }
         }
 
-        // Initialize after DOM load
-        window.onload = loadReels;
+        function renderHome() {
+            const grid = document.getElementById('movie-grid');
+            grid.innerHTML = movies.map(m => `
+                <div onclick="switchView('reels')" class="relative group cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 shadow-xl">
+                    <img src="${m.cover}" class="w-full aspect-[3/4] object-cover transition duration-500 group-hover:scale-110" />
+                    <div class="absolute top-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">
+                        ★ ${m.rating}
+                    </div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                    <div class="absolute bottom-3 left-3 right-3">
+                        <p class="text-[9px] font-bold text-red-500 mb-0.5 uppercase tracking-tighter">${m.episodes} Episodes</p>
+                        <h3 class="text-xs font-bold leading-tight line-clamp-2">${m.title}</h3>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderReels() {
+            const list = document.getElementById('reels-list');
+            list.innerHTML = movies.map((m, i) => `
+                <div class="reel-slide">
+                    <video id="video-${i}" class="video-full" loop playsinline src="${m.video}" onclick="togglePlay(this)"></video>
+                    
+                    <!-- Sidebar UI -->
+                    <div class="absolute right-4 bottom-32 flex flex-col items-center">
+                        <div class="btn-action"><i class="fa-solid fa-heart text-white text-xl"></i></div>
+                        <span class="text-[10px] font-bold mb-4">${m.likes}</span>
+                        <div class="btn-action"><i class="fa-solid fa-comment-dots text-white text-xl"></i></div>
+                        <span class="text-[10px] font-bold mb-4">42K</span>
+                        <div class="btn-action"><i class="fa-solid fa-share text-white text-xl"></i></div>
+                        <span class="text-[10px] font-bold">Share</span>
+                    </div>
+
+                    <!-- Bottom Info -->
+                    <div class="absolute left-5 bottom-28 right-20">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded italic">VIP</span>
+                            <span class="text-sm font-bold opacity-90">Series • Ep. 1</span>
+                        </div>
+                        <h2 class="text-xl font-black drop-shadow-lg">${m.title}</h2>
+                        <p class="text-sm opacity-70 mt-1 line-clamp-1">Created by Jhames Martin Scraper Engine</p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Intersection Observer to play/pause videos on scroll
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const video = entry.target.querySelector('video');
+                    if (entry.isIntersecting) {
+                        video.play();
+                    } else {
+                        video.pause();
+                        video.currentTime = 0;
+                    }
+                });
+            }, { threshold: 0.6 });
+
+            document.querySelectorAll('.reel-slide').forEach(slide => observer.observe(slide));
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const home = document.getElementById('view-home');
+            const reels = document.getElementById('view-reels');
+            const bottomNav = document.getElementById('bottom-nav');
+            const navHome = document.getElementById('nav-home');
+            const navReels = document.getElementById('nav-reels');
+
+            if (view === 'home') {
+                home.classList.remove('hidden');
+                reels.classList.add('hidden');
+                bottomNav.classList.remove('hidden');
+                navHome.classList.add('tab-active');
+                navReels.classList.remove('tab-active');
+                navReels.classList.add('text-zinc-500');
+            } else {
+                home.classList.add('hidden');
+                reels.classList.remove('hidden');
+                bottomNav.classList.add('hidden'); // Hide nav in reels for full immersion
+                // Ensure first video plays
+                const firstVideo = document.querySelector('video');
+                if (firstVideo) firstVideo.play();
+            }
+        }
+
+        function togglePlay(video) {
+            if (video.paused) video.play();
+            else video.pause();
+        }
+
+        async function triggerScrape() {
+            const btn = event.currentTarget;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scraping...';
+            const res = await fetch('/api/scrape-now');
+            const result = await res.json();
+            btn.innerHTML = `<i class="fa-solid fa-check"></i> Done (${result.count})`;
+            setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-sync-alt mr-1"></i> Scrape'; }, 2000);
+            init(); // Refresh data
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
