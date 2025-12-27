@@ -1,18 +1,16 @@
 {
-  "name": "netshort-ultimate-scraper",
-  "version": "5.0.0",
-  "description": "Deep Scraper with Video Manifest Interception",
+  "name": "netshort-api-light",
+  "version": "1.0.0",
+  "description": "Lightweight NetShort Scraper",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "puppeteer": "^21.5.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
-    "axios": "^1.6.0"
+    "express": "^4.18.2"
   },
   "engines": {
     "node": ">=16.x"
