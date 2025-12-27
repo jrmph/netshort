@@ -11,95 +11,134 @@ app.use(cors());
 app.use(express.json());
 
 const BASE_URL = 'https://netshort.com';
-const DEV_NAME = "Jhames Martin";
+const AUTHOR = "Jhames Martin";
 
-// Standard Response Helper
-const response = (res, data, status = 200) => {
-  res.status(status).json({
-    success: status === 200,
-    author: DEV_NAME,
-    timestamp: new Date().toISOString(),
-    ...data
-  });
+// High-quality Browser Headers to avoid blocks
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
+  'Referer': 'https://netshort.com/',
+  'DNT': '1'
 };
 
 /**
- * Endpoint: Trending
- * Scrapes the home page for dramas
+ * Deep Scraper Logic
+ * Focuses on extracting data from hidden script tags (JSON objects)
+ */
+const extractHiddenData = ($) => {
+  let data = null;
+  $('script').each((i, s) => {
+    const content = $(s).html();
+    // Target common JSON state names
+    if (content.includes('__NEXT_DATA__') || content.includes('__INITIAL_STATE__')) {
+      try {
+        // Extract only the JSON part
+        const jsonStr = content.substring(content.indexOf('{'), content.lastIndexOf('}') + 1);
+        data = JSON.parse(jsonStr);
+      } catch (e) { /* ignore parse errors */ }
+    }
+  });
+  return data;
+};
+
+/**
+ * [GET] /api/trending
  */
 app.get('/api/trending', async (req, res) => {
   try {
-    const { data: html } = await axios.get(BASE_URL, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15' }
-    });
+    const { data: html } = await axios.get(BASE_URL, { headers: HEADERS });
     const $ = cheerio.load(html);
-    const list = [];
+    const results = [];
     
-    $('.item-box, .drama-card, a[href*="/detail/"]').each((i, el) => {
-      const $el = $(el);
-      const title = $el.find('.title, .name').text().trim() || $el.attr('title');
-      const link = $el.attr('href') || $el.find('a').attr('href');
-      const cover = $el.find('img').attr('src') || $el.find('img').attr('data-src');
-      const id = link?.split('/').filter(Boolean).pop();
-      
-      if (title && id) {
-        list.push({ id, title, cover: cover?.startsWith('http') ? cover : `${BASE_URL}${cover}`, url: link });
+    // Method 1: Try JSON extraction first (Most Reliable)
+    const hiddenData = extractHiddenData($);
+    if (hiddenData) {
+      // Traverse the JSON object (structure might vary slightly)
+      const list = hiddenData?.props?.pageProps?.initialData?.list || hiddenData?.initialState?.home?.list;
+      if (list) {
+        list.forEach(item => {
+          results.push({
+            id: item.id || item.dramaId,
+            title: item.title || item.name,
+            cover: item.cover || item.vertical_cover,
+            episodes: item.episode_count || item.total,
+            url: `${BASE_URL}/detail/${item.id}`
+          });
+        });
       }
-    });
+    }
     
-    response(res, { count: list.length, items: list.slice(0, 20) });
-  } catch (err) {
-    response(res, { message: "Scrape failed: " + err.message }, 500);
+    // Method 2: Fallback to DOM Scraping if JSON fails
+    if (results.length === 0) {
+      $('.item-box, .drama-card, a[href*="/detail/"]').each((i, el) => {
+        const link = $(el).attr('href') || $(el).find('a').attr('href');
+        const img = $(el).find('img');
+        results.push({
+          id: link?.split('/').pop(),
+          title: img.attr('alt') || $(el).find('.title').text().trim(),
+          cover: img.attr('data-src') || img.attr('src'),
+          url: `${BASE_URL}${link}`
+        });
+      });
+    }
+    
+    res.json({ success: true, author: AUTHOR, count: results.length, dramas: results });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
 /**
- * Endpoint: Video Unlock (Advanced Bypass)
- * Extracts the hidden .m3u8 manifest link
+ * [GET] /api/video
+ * Extracts direct stream URL (m3u8)
  */
 app.get('/api/video', async (req, res) => {
   const { id, ep = 1 } = req.query;
-  if (!id) return response(res, { message: "ID is required" }, 400);
+  if (!id) return res.status(400).json({ error: "Missing ID" });
   
   try {
-    const targetUrl = `${BASE_URL}/play/${id}/${ep}`;
-    const { data: html } = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': BASE_URL
-      }
-    });
-    
+    const playUrl = `${BASE_URL}/play/${id}/${ep}`;
+    const { data: html } = await axios.get(playUrl, { headers: HEADERS });
     const $ = cheerio.load(html);
-    let streamUrl = null;
     
-    // ADVANCED BYPASS: Searching within script tags for obfuscated JSON state
-    $('script').each((i, s) => {
-      const content = $(s).html();
-      if (content && (content.includes('.m3u8') || content.includes('.mp4'))) {
-        const match = content.match(/https?:\/\/[^"']+\.(m3u8|mp4)[^"']*/);
+    let directUrl = null;
+    
+    // Bypassing front-end lock by finding manifest in JS state
+    const scripts = $('script').map((i, s) => $(s).html()).get();
+    for (const script of scripts) {
+      if (script && (script.includes('.m3u8') || script.includes('.mp4'))) {
+        // Precision Regex for Stream URLs
+        const match = script.match(/https?:\/\/[^"']+\.(m3u8|mp4)[^"']*/);
         if (match) {
-          streamUrl = match[0].replace(/\\/g, ''); // Clean the URL
+          directUrl = match[0].replace(/\\u002F/g, '/').replace(/\\/g, '');
+          break;
         }
       }
-    });
-    
-    if (!streamUrl) {
-      streamUrl = $('video source').attr('src') || $('video').attr('src');
     }
     
-    if (!streamUrl) return response(res, { message: "Source locked or not found" }, 404);
+    if (!directUrl) {
+      // DOM Fallback
+      directUrl = $('video source').attr('src') || $('video').attr('src');
+    }
     
-    response(res, {
-      unlocked: true,
-      data: { id, episode: ep, stream: streamUrl, format: streamUrl.includes('m3u8') ? "HLS" : "MP4" }
+    if (!directUrl) return res.status(404).json({ success: false, message: "Video link not found" });
+    
+    res.json({
+      success: true,
+      author: AUTHOR,
+      data: {
+        id,
+        episode: ep,
+        video_url: directUrl,
+        type: directUrl.includes('m3u8') ? "HLS" : "MP4"
+      }
     });
-  } catch (err) {
-    response(res, { message: "Bypass error: " + err.message }, 500);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Serve Frontend
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-app.listen(PORT, () => console.log(`[${DEV_NAME}] Server Online on Port ${PORT}`));
+app.listen(PORT, () => console.log(`[${AUTHOR}] API Active on ${PORT}`));

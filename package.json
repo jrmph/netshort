@@ -1,7 +1,7 @@
 {
-  "name": "netshort-api",
-  "version": "1.0.0",
-  "description": "Premium Scraper by Jhames Martin",
+  "name": "netshort-pro-api",
+  "version": "3.0.0",
+  "description": "Enterprise Scraper for NetShort",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
