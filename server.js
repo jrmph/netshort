@@ -1,144 +1,131 @@
+// NetShort Ultimate Scraper by Jhames Martin
 const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const cors = require('cors');
 const path = require('path');
+
+puppeteer.use(StealthPlugin());
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
 
-const BASE_URL = 'https://netshort.com';
 const AUTHOR = "Jhames Martin";
-
-// High-quality Browser Headers to avoid blocks
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.5',
-  'Referer': 'https://netshort.com/',
-  'DNT': '1'
-};
+const BASE_URL = "https://netshort.com";
 
 /**
- * Deep Scraper Logic
- * Focuses on extracting data from hidden script tags (JSON objects)
+ * Universal Scraper Helper
+ * Intercepts network requests and parses DOM
  */
-const extractHiddenData = ($) => {
-  let data = null;
-  $('script').each((i, s) => {
-    const content = $(s).html();
-    // Target common JSON state names
-    if (content.includes('__NEXT_DATA__') || content.includes('__INITIAL_STATE__')) {
-      try {
-        // Extract only the JSON part
-        const jsonStr = content.substring(content.indexOf('{'), content.lastIndexOf('}') + 1);
-        data = JSON.parse(jsonStr);
-      } catch (e) { /* ignore parse errors */ }
-    }
+async function deepScrape(targetUrl, isVideoMode = false) {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: [
+      "--disable-setuid-sandbox",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--window-size=1920,1080"
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
   });
-  return data;
-};
+  
+  const page = await browser.newPage();
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  
+  let videoUrl = null;
+  
+  // Kapag video mode, pakinggan ang lahat ng network traffic para makuha ang m3u8 link
+  if (isVideoMode) {
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const url = request.url();
+      if (url.includes('.m3u8') || (url.includes('.mp4') && !url.includes('google'))) {
+        videoUrl = url;
+      }
+      request.continue();
+    });
+  }
+  
+  try {
+    await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 45000 });
+    
+    // Scrape static info gamit ang evaluate (Browser Context)
+    const staticData = await page.evaluate(() => {
+      // Kunin ang lahat ng metadata mula sa __NEXT_DATA__ kung available
+      const nextDataEl = document.getElementById('__NEXT_DATA__');
+      if (nextDataEl) {
+        return JSON.parse(nextDataEl.innerHTML);
+      }
+      
+      // Fallback: Manual static scrape
+      return {
+        title: document.querySelector('h1')?.innerText || document.title,
+        desc: document.querySelector('.description, .synopsis')?.innerText || "",
+        poster: document.querySelector('img.cover, .poster img')?.src || ""
+      };
+    });
+    
+    // Kung video mode, maghintay ng konti para ma-intercept ang stream link
+    if (isVideoMode && !videoUrl) {
+      await page.evaluate(() => window.scrollBy(0, 300));
+      await new Promise(r => setTimeout(r, 6000));
+    }
+    
+    await browser.close();
+    return { staticData, videoUrl };
+  } catch (e) {
+    await browser.close();
+    throw e;
+  }
+}
 
-/**
- * [GET] /api/trending
- */
+// [API] Trending - Get all info and URLs for home page
 app.get('/api/trending', async (req, res) => {
   try {
-    const { data: html } = await axios.get(BASE_URL, { headers: HEADERS });
-    const $ = cheerio.load(html);
-    const results = [];
+    const { staticData } = await deepScrape(BASE_URL);
+    const list = staticData?.props?.pageProps?.initialData?.list || [];
     
-    // Method 1: Try JSON extraction first (Most Reliable)
-    const hiddenData = extractHiddenData($);
-    if (hiddenData) {
-      // Traverse the JSON object (structure might vary slightly)
-      const list = hiddenData?.props?.pageProps?.initialData?.list || hiddenData?.initialState?.home?.list;
-      if (list) {
-        list.forEach(item => {
-          results.push({
-            id: item.id || item.dramaId,
-            title: item.title || item.name,
-            cover: item.cover || item.vertical_cover,
-            episodes: item.episode_count || item.total,
-            url: `${BASE_URL}/detail/${item.id}`
-          });
-        });
-      }
-    }
+    const results = list.map(item => ({
+      id: item.id,
+      title: item.title || item.name,
+      cover_url: item.cover || item.vertical_cover,
+      episodes: item.episode_count,
+      info_url: `https://netshort.com/detail/${item.id}`
+    }));
     
-    // Method 2: Fallback to DOM Scraping if JSON fails
-    if (results.length === 0) {
-      $('.item-box, .drama-card, a[href*="/detail/"]').each((i, el) => {
-        const link = $(el).attr('href') || $(el).find('a').attr('href');
-        const img = $(el).find('img');
-        results.push({
-          id: link?.split('/').pop(),
-          title: img.attr('alt') || $(el).find('.title').text().trim(),
-          cover: img.attr('data-src') || img.attr('src'),
-          url: `${BASE_URL}${link}`
-        });
-      });
-    }
-    
-    res.json({ success: true, author: AUTHOR, count: results.length, dramas: results });
+    res.json({ success: true, author: AUTHOR, results });
   } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
+    res.status(500).json({ success: false, message: e.message });
   }
 });
 
-/**
- * [GET] /api/video
- * Extracts direct stream URL (m3u8)
- */
+// [API] Video Bypass - Get info + direct video manifest URL
 app.get('/api/video', async (req, res) => {
   const { id, ep = 1 } = req.query;
-  if (!id) return res.status(400).json({ error: "Missing ID" });
+  if (!id) return res.status(400).json({ error: "Drama ID is required" });
   
   try {
-    const playUrl = `${BASE_URL}/play/${id}/${ep}`;
-    const { data: html } = await axios.get(playUrl, { headers: HEADERS });
-    const $ = cheerio.load(html);
-    
-    let directUrl = null;
-    
-    // Bypassing front-end lock by finding manifest in JS state
-    const scripts = $('script').map((i, s) => $(s).html()).get();
-    for (const script of scripts) {
-      if (script && (script.includes('.m3u8') || script.includes('.mp4'))) {
-        // Precision Regex for Stream URLs
-        const match = script.match(/https?:\/\/[^"']+\.(m3u8|mp4)[^"']*/);
-        if (match) {
-          directUrl = match[0].replace(/\\u002F/g, '/').replace(/\\/g, '');
-          break;
-        }
-      }
-    }
-    
-    if (!directUrl) {
-      // DOM Fallback
-      directUrl = $('video source').attr('src') || $('video').attr('src');
-    }
-    
-    if (!directUrl) return res.status(404).json({ success: false, message: "Video link not found" });
+    const { staticData, videoUrl } = await deepScrape(`${BASE_URL}/play/${id}/${ep}`, true);
     
     res.json({
       success: true,
       author: AUTHOR,
-      data: {
-        id,
+      details: {
+        title: staticData?.props?.pageProps?.dramaInfo?.title || "Unknown",
         episode: ep,
-        video_url: directUrl,
-        type: directUrl.includes('m3u8') ? "HLS" : "MP4"
-      }
+        description: staticData?.props?.pageProps?.dramaInfo?.intro || "",
+      },
+      stream_url: videoUrl,
+      status: videoUrl ? "BYPASS_SUCCESS" : "LOCKED_OR_NOT_FOUND"
     });
   } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
+    res.status(500).json({ success: false, message: e.message });
   }
 });
 
+// Serve the UI
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-app.listen(PORT, () => console.log(`[${AUTHOR}] API Active on ${PORT}`));
+app.listen(PORT, () => console.log(`[Jhames Martin] Ultimate API running on port ${PORT}`));
